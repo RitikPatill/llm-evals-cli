@@ -1,4 +1,7 @@
 import typer
+from pydantic import ValidationError
+
+from llm_evals_cli.loader import load_suite
 
 app = typer.Typer(name="evals", help="Run repeatable LLM eval suites from the CLI.")
 
@@ -18,7 +21,15 @@ def validate(
     suite: str = typer.Argument(..., help="Path to the eval suite YAML file."),
 ) -> None:
     """Validate an eval suite YAML file without running it."""
-    print("not implemented yet")
+    try:
+        loaded = load_suite(suite)
+        typer.echo(f"✓ {loaded.name}: {len(loaded.cases)} case(s) valid.")
+    except FileNotFoundError:
+        typer.echo(f"Error: file not found: {suite}", err=True)
+        raise typer.Exit(1)
+    except ValidationError as e:
+        typer.echo(f"Schema error:\n{e}", err=True)
+        raise typer.Exit(1)
 
 
 @app.command("show-report")

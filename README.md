@@ -12,14 +12,16 @@ Prompt changes break things silently. Existing eval platforms are either cloud-o
 
 `llm-evals-cli` gives you a fast, local, CI-friendly feedback loop: define test cases in YAML, run one command, get a colour-coded pass/fail table in under a minute.
 
-## What works now (M1 — scaffold)
+## What works now (M2 — YAML schema + validator)
 
 - Python package layout under `src/llm_evals_cli/` with `pyproject.toml` (hatchling build, Python ≥ 3.11)
-- Pinned runtime dependencies: `typer`, `rich`, `httpx`, `pydantic`
-- Three CLI entry points scaffolded — `evals run`, `evals validate`, `evals show-report` — each parses arguments but returns `not implemented yet`
-- `evals` console script registered; `pip install -e .` produces a working (stub) binary
-- Dev toolchain configured: `pytest`, `ruff` (line-length 100), `mypy` (strict)
-- MIT licence and `.gitignore`
+- Pinned runtime dependencies: `typer`, `rich`, `httpx`, `pydantic`, `pyyaml`
+- **`evals validate <suite.yaml>`** — fully implemented: loads and validates a YAML suite, prints a success message or structured error
+- Pydantic v2 models (`Suite`, `Case`, `MetricEnum`) in `schema.py`; auto-assigns `id` to cases that omit it
+- YAML loader in `loader.py` using `yaml.safe_load`
+- Example suites in `examples/basic_suite.yaml` and `examples/llm_judge_suite.yaml`
+- Unit tests in `tests/test_schema.py` covering valid parsing, defaults, and all validation error paths
+- `evals run` and `evals show-report` are scaffolded stubs (not yet implemented)
 
 ## Planned features
 
@@ -42,7 +44,7 @@ evals validate suite.yaml
 evals run suite.yaml --output report.json
 ```
 
-> **Note:** commands are stubs as of M1 and print `not implemented yet`. Full implementation begins in M2.
+> **Note:** `evals run` and `evals show-report` are stubs. `evals validate` is fully working as of M2.
 
 ## Eval suite format
 
@@ -76,21 +78,26 @@ llm-evals-cli/
 ├── src/
 │   └── llm_evals_cli/
 │       ├── __init__.py          # package version (0.1.0)
-│       └── cli.py               # Typer app; run / validate / show-report stubs
+│       ├── cli.py               # Typer app; validate (done), run / show-report stubs
+│       ├── schema.py            # Pydantic v2 models: Suite, Case, MetricEnum
+│       └── loader.py            # load_suite(path) → Suite
+├── examples/
+│   ├── basic_suite.yaml         # exact_match, contains, regex examples
+│   └── llm_judge_suite.yaml     # llm_judge with system prompt and tags
+├── tests/
+│   └── test_schema.py           # unit tests for schema parsing and validation
 ├── pyproject.toml               # build config, pinned deps, entry point
 ├── requirements.txt             # pinned runtime deps
-├── requirements-dev.txt         # pinned dev deps (pytest, ruff, mypy)
+├── requirements-dev.txt         # dev/test dependencies (pytest, etc.)
 └── LICENSE
 ```
-
-<!-- TODO: expand once core modules (loader, runner, metrics, reporter) are added in M2+ -->
 
 ## Roadmap
 
 | Milestone | Scope | Status |
 |-----------|-------|--------|
 | M1 | Repo scaffold, package layout, stub CLI, dev toolchain | done |
-| M2 | YAML loader, Pydantic suite models, `validate` command | planned |
+| M2 | YAML loader, Pydantic suite models, `validate` command | done |
 | M3 | Async LLM runner, `exact_match` / `contains` metrics | planned |
 | M4 | `regex` metric, Rich reporter, `run` command end-to-end | planned |
 | M5 | `llm_judge` metric, JSON / HTML export, CI workflow | planned |
