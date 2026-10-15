@@ -1,0 +1,13 @@
+name: Basic smoke tests
+description: Quick sanity checks for a greeting endpoint
+model: gpt-4o-mini
+cases:
+  - prompt: "Say exactly: hello"
+    expected: "hello"
+    metric: exact_match
+  - prompt: "Name a primary color."
+    expected: "red"
+    metric: contains
+  - prompt: "Give me a date in ISO format."
+    expected: "\\d{4}-\\d{2}-\\d{2}"
+    metric: regex

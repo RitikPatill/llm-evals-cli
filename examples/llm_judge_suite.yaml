@@ -1,0 +1,9 @@
+name: LLM judge demo
+model: gpt-4o-mini
+cases:
+  - id: factual-capital
+    prompt: "What is the capital of France?"
+    expected: "Paris"
+    metric: llm_judge
+    system: "You are a geography tutor."
+    tags: [geography, factual]
