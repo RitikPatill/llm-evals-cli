@@ -23,7 +23,7 @@ class Suite(BaseModel):
     name: str
     description: str | None = None
     model: str = "gpt-4o-mini"
-    base_url: str = "https://api.openai.com/v1"
+    base_url: str | None = None
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, gt=0)
     cases: list[Case] = Field(min_length=1)
