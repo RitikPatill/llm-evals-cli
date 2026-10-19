@@ -45,7 +45,7 @@ async def test_run_suite_success():
         assert r.response == "hello"
         assert r.latency_s >= 0
         assert r.error is None
-        assert r.passed is None
+        assert r.passed is not None  # metrics engine populates this
 
 
 @pytest.mark.asyncio

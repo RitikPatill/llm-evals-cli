@@ -23,6 +23,7 @@ class Suite(BaseModel):
     name: str
     description: str | None = None
     model: str = "gpt-4o-mini"
+    judge_model: str | None = None
     base_url: str | None = None
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, gt=0)
