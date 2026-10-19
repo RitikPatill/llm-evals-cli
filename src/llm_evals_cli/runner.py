@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
@@ -20,6 +21,8 @@ class RunResult:
     passed: bool | None
     rationale: str | None      # judge rationale or None
     error: str | None          # exception message if request failed
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
 async def run_suite(
@@ -27,6 +30,7 @@ async def run_suite(
     base_url: str | None = None,
     concurrency: int = 5,
     timeout_s: float = 30.0,
+    on_result: Callable[["RunResult"], None] | None = None,
 ) -> list[RunResult]:
     resolved_url = (
         base_url
@@ -48,7 +52,7 @@ async def run_suite(
         timeout=httpx.Timeout(timeout_s),
     ) as client:
         results = await asyncio.gather(
-            *[_run_case(client, sem, resolved_url, suite, case) for case in suite.cases]
+            *[_run_case(client, sem, resolved_url, suite, case, on_result) for case in suite.cases]
         )
 
     return list(results)
@@ -60,6 +64,7 @@ async def _run_case(
     base_url: str,
     suite: Suite,
     case: Case,
+    on_result: Callable[["RunResult"], None] | None = None,
 ) -> RunResult:
     async with sem:
         start = time.perf_counter()
@@ -83,6 +88,8 @@ async def _run_case(
             content = data["choices"][0]["message"]["content"]
             latency = time.perf_counter() - start
 
+            usage = data.get("usage", {})
+
             judge_model = suite.judge_model or suite.model
             passed, rationale = await score(
                 case.metric,
@@ -93,7 +100,7 @@ async def _run_case(
                 model=judge_model,
             )
 
-            return RunResult(
+            result = RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
                 expected=case.expected,
@@ -103,11 +110,16 @@ async def _run_case(
                 passed=passed,
                 rationale=rationale,
                 error=None,
+                prompt_tokens=usage.get("prompt_tokens"),
+                completion_tokens=usage.get("completion_tokens"),
             )
+            if on_result is not None:
+                on_result(result)
+            return result
 
         except httpx.TimeoutException as exc:
             latency = time.perf_counter() - start
-            return RunResult(
+            result = RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
                 expected=case.expected,
@@ -118,9 +130,12 @@ async def _run_case(
                 rationale=None,
                 error=f"timeout: {exc}",
             )
+            if on_result is not None:
+                on_result(result)
+            return result
         except httpx.HTTPStatusError as exc:
             latency = time.perf_counter() - start
-            return RunResult(
+            result = RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
                 expected=case.expected,
@@ -131,9 +146,12 @@ async def _run_case(
                 rationale=None,
                 error=f"HTTP {exc.response.status_code}: {exc}",
             )
+            if on_result is not None:
+                on_result(result)
+            return result
         except httpx.RequestError as exc:
             latency = time.perf_counter() - start
-            return RunResult(
+            result = RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
                 expected=case.expected,
@@ -144,9 +162,12 @@ async def _run_case(
                 rationale=None,
                 error=f"request error: {exc}",
             )
+            if on_result is not None:
+                on_result(result)
+            return result
         except Exception as exc:
             latency = time.perf_counter() - start
-            return RunResult(
+            result = RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
                 expected=case.expected,
@@ -157,3 +178,6 @@ async def _run_case(
                 rationale=None,
                 error=f"unexpected error: {exc}",
             )
+            if on_result is not None:
+                on_result(result)
+            return result
