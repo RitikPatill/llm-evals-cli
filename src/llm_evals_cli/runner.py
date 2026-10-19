@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import httpx
 
 from llm_evals_cli.schema import Suite, Case
+from llm_evals_cli.metrics import score
 
 
 @dataclass
@@ -16,7 +17,8 @@ class RunResult:
     metric: str
     response: str | None      # raw LLM output text, None on error
     latency_s: float           # wall-clock seconds for the request
-    passed: bool | None        # None — filled in by metrics engine (M4)
+    passed: bool | None
+    rationale: str | None      # judge rationale or None
     error: str | None          # exception message if request failed
 
 
@@ -81,6 +83,16 @@ async def _run_case(
             content = data["choices"][0]["message"]["content"]
             latency = time.perf_counter() - start
 
+            judge_model = suite.judge_model or suite.model
+            passed, rationale = await score(
+                case.metric,
+                content,
+                case.expected,
+                client=client,
+                base_url=base_url,
+                model=judge_model,
+            )
+
             return RunResult(
                 case_id=case.id or "",
                 prompt=case.prompt,
@@ -88,7 +100,8 @@ async def _run_case(
                 metric=case.metric,
                 response=content,
                 latency_s=latency,
-                passed=None,
+                passed=passed,
+                rationale=rationale,
                 error=None,
             )
 
@@ -101,7 +114,8 @@ async def _run_case(
                 metric=case.metric,
                 response=None,
                 latency_s=latency,
-                passed=None,
+                passed=False,
+                rationale=None,
                 error=f"timeout: {exc}",
             )
         except httpx.HTTPStatusError as exc:
@@ -113,7 +127,8 @@ async def _run_case(
                 metric=case.metric,
                 response=None,
                 latency_s=latency,
-                passed=None,
+                passed=False,
+                rationale=None,
                 error=f"HTTP {exc.response.status_code}: {exc}",
             )
         except httpx.RequestError as exc:
@@ -125,7 +140,8 @@ async def _run_case(
                 metric=case.metric,
                 response=None,
                 latency_s=latency,
-                passed=None,
+                passed=False,
+                rationale=None,
                 error=f"request error: {exc}",
             )
         except Exception as exc:
@@ -137,6 +153,7 @@ async def _run_case(
                 metric=case.metric,
                 response=None,
                 latency_s=latency,
-                passed=None,
+                passed=False,
+                rationale=None,
                 error=f"unexpected error: {exc}",
             )
